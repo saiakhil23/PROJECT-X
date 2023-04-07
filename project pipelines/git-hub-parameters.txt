@@ -1,0 +1,48 @@
+pipeline {
+    agent { 
+        node { 
+        label 'master' 
+        }
+        }
+    options { buildDiscarder(logRotator(numToKeepStr: '5')) 
+    }
+    parameters {
+        string(name: 'PERSON', defaultValue: 'Mr Jenkins', description: 'Who should I say hello to?')
+
+        text(name: 'BIOGRAPHY', defaultValue: '', description: 'Enter some information about the person')
+
+        booleanParam(name: 'TOGGLE', defaultValue: true, description: 'Toggle this value')
+
+        choice(name: 'CHOICE', choices: ['One', 'Two', 'Three'], description: 'Pick something')
+
+        password(name: 'PASSWORD', defaultValue: 'SECRET', description: 'Enter a password')
+    }
+    stages {
+        stage('github') {
+            agent { 
+        node { 
+        label 'master' 
+        customWorkspace "/tmp/jenkins-workspace"   
+        }
+        
+        }
+            steps {
+                checkout scmGit(branches: [[name: '*/main']], extensions: [], userRemoteConfigs: [[credentialsId: 'devops14-jenkins-ssh-id', url: 'https://github.com/Devops4-1/mymaven-project.git']])
+            }
+        }
+        stage("git test"){
+            agent { 
+        node { 
+        label 'master' 
+        customWorkspace "/tmp/jenkins-workspace1"   
+        }
+        
+        }
+            steps{
+                
+            git branch: 'main', credentialsId: 'devops14-jenkins-ssh-id', url: 'https://github.com/Devops4-1/mymaven-project.git'
+        }
+            
+        }
+    }
+}

@@ -1,0 +1,68 @@
+pipeline {
+    agent { label 'baston' }
+    tools {
+        maven "maven3"  
+    }
+	environment {
+      DOCKERHUB_CREDENTIALS = credentials('dockerhub-cred')
+    }
+    stages {
+        stage('git-checkout') {
+            steps {
+                git credentialsId: 'jenkins-ssh', url: 'git@bitbucket.org:venkatesh2807/createat-task.git'
+            }
+        }
+		stage('maven-build') {
+            steps {
+               sh '''
+			   cd $WORKSPACE/springboot/java-springboot
+			   mvn clean package
+			   '''
+            }
+        }
+		stage('sonar') {
+            steps {
+			  sh'''
+			  cd $WORKSPACE/springboot/java-springboot
+			  mvn clean verify sonar:sonar \
+             -Dsonar.projectKey=venkatesh \
+             -Dsonar.host.url=http://43.206.216.81:9000 \
+             -Dsonar.login=sqp_ce8464f3e92b90334c3381fc3ccdba8178e247c0
+			  
+			
+			  '''
+            }
+            
+            
+        }
+		stage('nexus') {
+            steps {
+                nexusArtifactUploader artifacts: [[artifactId: 'springboot-backend', classifier: '', file: 'springboot/java-springboot/target/springboot-backend-0.0.1-SNAPSHOT.jar', type: 'jar']], credentialsId: 'nexus', groupId: 'net.javaguides', nexusUrl: 'a212291e2c64f4f5bb718ae14e62ecac-775189038.ap-northeast-1.elb.amazonaws.com:8081', nexusVersion: 'nexus3', protocol: 'http', repository: 'venkatesh', version: '0.0.1-SNAPSHOT'
+            }
+            
+            
+        }
+		
+		stage('Docker-build') {
+           steps {
+             sh '''
+             echo "$DOCKERHUB_CREDENTIALS_PSW" | docker login -u "$DOCKERHUB_CREDENTIALS_USR" --password-stdin
+             docker build -t venkateshpusarla/springboot:java-v1 $WORKSPACE/springboot/java-springboot/.
+             docker image prune -f 
+             '''
+           }
+        }
+        stage('Docker-push') {
+           steps {
+             sh '''
+                docker push venkateshpusarla/springboot:java-v1 
+             '''
+           }
+        }
+
+		
+		
+		
+        
+    }
+}

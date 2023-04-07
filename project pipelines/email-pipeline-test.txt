@@ -1,0 +1,83 @@
+def continueotherstages = false
+pipeline{
+    agent any
+    stages{
+        stage("build name"){
+          steps{
+            script {
+                    currentBuild.displayName = "${BUILD_NUMBER}-${JOB_NAME}"
+                    currentBuild.description = "continue other stages if stage fails"
+                }
+          }
+        }
+        stage("stage1"){
+            steps{
+                script {
+                try {
+                    sh "ech stage1"
+                } catch (Exception e) {
+                    continueotherstages = true
+                }
+               if(continueotherstages){
+                catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                      sh "exit 1"
+                }
+            }
+            }
+            }
+            post{
+        failure{
+            emailext body: '''The jenkins has been failed.
+
+url : ${BUILD_URL}
+
+thanks
+Devops team''', subject: 'jenkins build ${JOB_NAME} - ${BUILD_NUMBER}', to: 'malleshdevops2021@outlook.com'
+        }
+    }
+        }
+        stage("stage2"){
+            agent{ label 'jenkins-slave-1' }
+            when {
+                expression{
+                !continueotherstages
+                }
+            }
+            steps{
+                sh "echo stage2"
+            }
+            post{
+        failure{
+            emailext body: '''The jenkins has been failed.
+
+url : ${BUILD_URL}
+
+thanks
+Devops team''', subject: 'jenkins build ${JOB_NAME} - ${BUILD_NUMBER}', to: 'malleshdevops2021@outlook.com'
+        }
+    }
+        }
+        stage("stage3"){
+            agent{ label 'jenkins-slave-1' }
+            when {
+                expression{
+                continueotherstages
+                }
+            }
+            steps{
+                echo "stage3"
+            }
+            post{
+        failure{
+            emailext body: '''The jenkins has been failed.
+
+url : ${BUILD_URL}
+
+thanks
+Devops team''', subject: 'jenkins build ${JOB_NAME} - ${BUILD_NUMBER}', to: 'malleshdevops2021@outlook.com'
+        }
+    }
+        }
+    }
+    
+}

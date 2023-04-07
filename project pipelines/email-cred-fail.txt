@@ -1,0 +1,90 @@
+pipeline {
+    //using this script will connect to lab-ansible server
+    agent {
+        node{
+       
+            label 'master'
+            }
+        
+    }
+    options { buildDiscarder(logRotator(numToKeepStr: '10')) }
+    environment{
+        loginuser = "abc"
+    }
+    parameters {
+        string(name: 'customer_id', defaultValue: '', description: 'Enter customer_id here', trim: true)
+        
+    }
+
+    stages {
+        stage('Validate customer_id and files'){
+            
+            steps {
+                echo "checking parameters"
+                
+                }
+            }
+    stage('cyber script') {
+            environment {
+                TEST_COMMON_CREDS = credentials('aws-ses-cred')
+            }
+            steps {
+            script {
+                cyberstage=env.STAGE_NAME
+			try{
+			echo 'getting started'
+            echo "$loginuser"
+	 		sh '''
+	            cd ${WORKSPACE}
+	            echo ${WORKSPACE}
+	            echo ${BUILD_NUBER}
+	            mkdir -p ${WORKSPACE}/usertmp
+                if [ -e ${WORKSPACE}/usertmp/*-JenkinsAuto1.txt ]
+                then
+                  if [ -e ${WORKSPACE}/usertmp/*-JenkinsAuto2.txt ]
+                  then
+                    if [ -e ${WORKSPACE}/usertmp/*-JenkinsAuto3.txt ]
+                    then
+                      echo "all users are in active"
+                      exit 1
+                    else
+                      jenkinsuser='JenkinsAuto3'
+                      touch ${WORKSPACE}/usertmp/${BUILD_NUMBER}-JenkinsAuto3.txt
+                    fi
+                  else
+                    jenkinsuser='JenkinsAuto2'
+                    touch ${WORKSPACE}/usertmp/${BUILD_NUMBER}-JenkinsAuto2.txt
+                  fi
+                else
+                  jenkinsuser='JenkinsAuto1'
+                  touch ${WORKSPACE}/usertmp/${BUILD_NUMBER}-JenkinsAuto1.txt
+                fi
+                bash test.sh $jenkinsuser
+                
+                if [ $? != 0 ]
+                then
+                    echo "build failed"
+                    exit 1
+                fi
+                
+                '''
+            echo "jenkins user outside of shell: $jenkinsuser"
+            env.loginuser = $jenkinsuser
+            }catch (Exception err) {
+                            
+                            cyberfail = true
+                            sh ''' echo "$loginuser"
+                            rm  -f ${WORKSPACE}/usertmp/${BUILD_NUMBER}-*.txt '''
+						}
+			if(cyberfail){
+			catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                  sh 'exit 1'
+			}
+            }
+            
+        }
+        
+    }
+	}
+}
+}

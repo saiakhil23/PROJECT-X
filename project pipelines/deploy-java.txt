@@ -1,0 +1,123 @@
+pipeline {
+    agent any
+
+    stages {
+        stage('Git integration') {
+            steps {
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'devops14-jenkins-ssh-id', url: 'https://malleshdevops2021@bitbucket.org/malleshdevops2021/createat-task.git']])
+            }
+        }
+        stage('helm check') {
+            steps {
+                sh '''helm version
+				      if [ $? == 0 ]
+					  then
+					    echo "Helm installed"
+					  else
+					    echo "Helm not installed"
+						exit 1
+					  fi
+                '''
+            }
+
+        }
+        stage('helm java install') {
+            steps {
+                sh '''cd $WORKSPACE
+                      helm upgrade --install devops-java springboot --values springboot/create-task-java.yaml
+					  '''
+                
+            }
+            
+        }
+        stage('check pods') {
+            steps {
+                sh '''
+                    kubectl get po 
+                    
+                '''
+                
+            }
+            
+        }
+        
+    }
+}
+
+
+################################################################
+
+
+pipeline {
+    agent any
+
+    stages {
+        stage('Git integration') {
+            steps {
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[credentialsId: 'devops14-jenkins-ssh-id', url: 'https://malleshdevops2021@bitbucket.org/malleshdevops2021/createat-task.git']])
+            }
+        }
+        stage('Docker build') {
+            steps {
+                sh '''
+                    cd $WORKSPACE/springboot/java-springboot
+                    docker build -t spring:v1 .
+                    
+                '''
+                
+            }
+            
+        }
+        stage('Docker repo push') {
+            steps {
+                sh '''
+                 docker tag spring:v1 malleshdevops/jenkins-flow-test:spring-v1
+                 docker push malleshdevops/jenkins-flow-test:spring-v1
+                '''
+                
+            }
+            
+        }
+        stage('connecting to eks cluster'){
+            steps{
+                sh '''kubectl config use-context arn:aws:eks:eu-west-2:247137868475:cluster/devops13-eks-ef89SGZh '''
+            }
+        }
+        stage('helm check') {
+            steps {
+                sh '''helm version
+				      if [ $? == 0 ]
+					  then
+					    echo "Helm installed"
+					  else
+					    echo "Helm not installed"
+						exit 1
+					  fi
+                '''
+            }
+
+        }
+        stage('helm java install') {
+            steps {
+                sh '''cd $WORKSPACE
+                      helm upgrade --install devops-java springboot --values springboot/create-task-java.yaml \
+                      --set image.repository=malleshdevops/jenkins-flow-test \
+                      --set image.tag=spring-v1
+					  '''
+                
+            }
+            
+        }
+        stage('check pods') {
+            steps {
+                sh '''
+                    kubectl get po 
+                    
+                '''
+                
+            }
+            
+        }
+        
+    }
+}
